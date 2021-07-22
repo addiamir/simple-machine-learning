@@ -1,0 +1,287 @@
+---
+title: "Marketing & Sales Data Predictive Modeling"
+author: "Mohammad Adi Amirudin"
+date: "5/15/2021"
+output:
+  rmdformats::robobook:
+    highlight: tango
+    self_contained: TRUE
+    thumbnails: FALSE
+    lightbox: TRUE
+    gallery: TRUE
+---
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(rmdformats)
+
+## Global options
+options(max.print="75")
+opts_chunk$set(echo=TRUE,
+	             cache=TRUE,
+               prompt=FALSE,
+               tidy=TRUE,
+               comment=NA,
+               message=FALSE,
+               warning=FALSE)
+opts_knit$set(width=75)
+```
+
+# Disclaimer
+
+This project is a sole work of [**Mohammad Adi Amirudin**](https://github.com/addiamir), any comments, pull requests, or critics can be addressed via email to amirudin.adi@gmail.com. This project is for educational purpose only and not commercial purposed. The dataset used in this project is the proprietary of the dataset owner **Hariman Samuel Saragih**.
+
+# Project Details
+
+## 1.1. Data Description
+
+This project uses **Dummy Data HSS.csv** from [**Hariman Samuel Saragih**](https://www.kaggle.com/harrimansaragih) Kaggle dataset, the data contains 4572 observations of dummy marketing channel sales as presented below:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE, results='asis'}
+library(dplyr)
+datamrkt <- read.csv("D:/1. Active Projects/Data Analysis/Personal Projects Directory/Marketing & Sales Data Predictive Modeling/Dummy Data HSS.csv")
+knitr::kable(head(datamrkt))
+```
+
+
+## 1.2. Problem Case
+
+Imagine that this is your company's marketing channel data in respect to its sales. The first to fourth columns is the spending of each marketing channels, (for example in row 1, the spending for **TV** is 16, **Radio** is 6.566231, so on) while the fifth (**Sales**) is the respective sales of the company.
+
+Your job (**Mohammad Adi Amirudin**) as the company's hypothetical Data Analyst is to gain insight about the relationship and makes the calculations which one is **the most influential marketing channel** (`TV`, `Radio`, `Social.Media`, `Influencer`), also, the company's Marketing Manager wants to know **how can they increase their sales to a minimum of 75% of their current sales**.
+
+
+## 1.3. Project Goals
+
+After examining what kind of results the Marketing Manager expect, you lists down several goals of this project, which are:
+
+1. To get a general overview of the current marketing channels to `Sales`.
+2. To give insights and prediction about the right combination of the upper quartile of sales (75% higher). 
+3. To find which marketing channel is the most important variable contributing to `Sales`.
+
+# Preparations
+
+This part of the project will talk about the preparation of the data, from importing dataset and libraries, data wrangling (data integrity checking, outlier and missing value treatment), data format correction, and train-test data.frame splitting.
+
+
+## 2.1. Importing Dataset & Library
+
+```{r echo=TRUE, message=FALSE, warning=FALSE}
+# Loading Dataset
+datamrkt <- read.csv("D:/1. Active Projects/Data Analysis/Personal Projects Directory/Marketing & Sales Data Predictive Modeling/Dummy Data HSS.csv")
+# Loading Libraries Required
+library(dplyr)
+library(tidyr)
+library(caret)
+library(ggplot2)
+library(psych)
+library(mice)
+library(InformationValue)
+library(ROSE)
+library(rpart)
+library(stats)
+library(randomForest)
+library(gridExtra)
+library(highcharter)
+library(prettydoc)
+```
+
+## 2.2. Data Wrangling
+
+### 2.2.1. Preliminary Look at The Data
+
+Before we delve into some analysis, it is crucial to look at the data and examines its features, as well as making some-if necessary-adjustments. We will start with inspecting the data first.
+```{r}
+summary(datamrkt)
+```
+
+From this summary, we can tell that our data has missing values (NA's value in all variables except for `Influencer`). The `Influencer` variable also presented as `class:: character`, which is wrong, considering that `Influencer` variable explains the types of influencers used (**Mega**, **Macro**, **Micro**, **Nano**) therefore its data type should be factors not characters. Another problem that we might be having is outliers, we will sort this problem out using the following outlier moderation.
+```{r}
+datamrkt$Influencer <- as.factor(datamrkt$Influencer)
+is.factor(datamrkt$Influencer)
+```
+
+This little block of code can help us to change the `Influencer` wrong data type.
+
+### 2.2.2. Missing Values Treatment
+
+```{r}
+sum(is.na(datamrkt))
+mean(is.na(datamrkt))
+```
+
+The code explains that we had 26 (0.113%) missing values. To deal with the missing values, we can choose whether to omit the missing values, makes an iteration (creating new values), or just leaving it up. 
+
+**1. Leave them be**
+
+Since the business spending on every marketing channels; **TV**, **Radio**, **Social.Media**, even on **Sales**, the probability of the actual value is 0 is unlikely, thus, keeping the missing values to the dataset will not giving any insights.
+
+**2. Iteration with stochastic regression**
+
+Another way is to iterate or *'create'* the values that projected to the missing values. But then, there is a caveat on this approach, we can't just make up for every bit of missing values because it may caused biasedness in the analysis later, since the data has been modified so much.
+
+```{r}
+imp <- mice(datamrkt, method = "norm.nob", m = 1) #Impute data
+Data2 <- complete(imp) #Store data 
+sapply(Data2, anyNA)
+```
+
+Even after iteration, we can see that variable `TV` still has missing values (Although it can be dealt with changing the iteration method), thus we may want to look out to other safe alternatives before proceeding to further iteration.
+
+**3. Omitted Missing Values**
+
+Lastly, to deal with missing values we can just scrape off the observations that contains the missing values, in this case the 26 out of 4572 observations. I choose this approach rather than iteration or leaving the values just the way they are because we can have a robust analysis that comes from actual data, even though we lose 26 observations (0.001137358 = 0.133%).
+
+```{r}
+datamrkt <- na.omit(datamrkt)
+sapply(datamrkt, anyNA)
+```
+
+Now that our missing values problem solved, we can continue the wrangling process.
+
+### 2.2.3. Outlier Moderations {.tabset .tabset-fade .tabset-pills}
+
+#### TV
+```{r echo=FALSE}
+require(highcharter)
+tvbox <- data_to_boxplot(datamrkt, TV, add_outliers = TRUE)
+
+highchart() %>%
+  hc_xAxis(type = "category") %>%
+  hc_add_series_list(tvbox) %>%
+  hc_add_theme(hc_theme_flat())
+
+tvstat <- boxplot.stats(datamrkt$TV)$out
+out_tvstat <- which(datamrkt$TV %in% c(tvstat))
+out_tvstat
+```
+
+#### Radio
+```{r echo=FALSE}
+radbox <- data_to_boxplot(datamrkt, Radio, add_outliers = TRUE)
+
+highchart() %>%
+  hc_xAxis(type = "category") %>%
+  hc_add_series_list(radbox) %>%
+  hc_add_theme(hc_theme_flat())
+
+radstat <- boxplot.stats(datamrkt$Radio)$out
+out_radstat <- which(datamrkt$Radio %in% c(radstat))
+out_radstat
+
+```
+
+#### Social Media
+```{r echo=FALSE}
+sobox <- data_to_boxplot(datamrkt, Social.Media, add_outliers = TRUE)
+
+highchart() %>%
+  hc_xAxis(type = "category") %>%
+  hc_add_series_list(sobox) %>%
+  hc_add_theme(hc_theme_flat())
+
+socstat <- boxplot.stats(datamrkt$Social.Media)$out
+out_socstat <- which(datamrkt$Social.Media %in% c(socstat))
+out_socstat
+
+```
+
+#### Sales
+```{r echo=FALSE}
+sabox <- data_to_boxplot(datamrkt, Sales, add_outliers = TRUE)
+
+highchart() %>%
+  hc_xAxis(type = "category") %>%
+  hc_add_series_list(sabox) %>%
+  hc_add_theme(hc_theme_flat())
+
+
+sastat <- boxplot.stats(datamrkt$Sales)$out
+out_sastat <- which(datamrkt$Sales %in% c(sastat))
+out_sastat
+
+```
+### {-}
+
+As we can see, our data has a quite number of outliers, blue dotes above the boxplots refers to the outliers, the numbers below the diagram shows where the outliers lies. Since only `Radio` and `Social.Media` that has outliers, which then contribute to the 0.62% of the total observations, it is safe for us to **not giving any additional treatment for the outliers**.
+
+# Analysis
+
+## 3.1. Overview of Current Situation
+
+In this part we will be analyzing the overview of the current company situation, which uses explanatory data analysis (EDA) method.
+
+### {.tabset .tabset-fade .tabset-pills}
+
+#### Correlation Pairs Panel
+```{r echo=FALSE}
+par(mfrow=c(1,1))
+require(psych)
+pairs.panels(datamrkt)
+
+```
+**Correlation Pairs Panel**
+
+The pair panels is a mix of; *1. Distribution panels (lower diagonal panels)* indicate the distribution of one variable with its respective pairs, *2. Frequency Panels (diagonal panels)*, describes the frequency of each variables and *3. Pearsons Correlation (upper diagonal panels)* which indicate the correlation between one variable to another, with -/+ as a 'negative/positive' correlation indicator and strength varys between 0 and 1.
+
+Set aside the distribution of `influencer` (due to the fact that its a factor that consist of only four value rather than continuous numerical values) we can take on some insights, which are:
+
+1. The `TV` and `Sales` variables are resembles each others, with pearson correlation value 1 and the tight distribution that follows (tight line on the bottom left corner).  
+2. `Radio` variable has a strong overall correlation to each of every variables except of `Influencer` with Pearson Correlation value higher than 0.65.
+3. `Influencer` variable has a weak negative overall correlation to each of every variables, this can be due to the type of the data itself (factor of 4) rather than numerical continuous which is not suited to the Pearson Correlation method. So we can reject the Pearson Correlation value of `Influencer` and try to analyze the significance of this variable later.
+4. `Social Media` has a left-skewed graph, means that the distribution of the `Social Media` cost are mostly taking place in low to medium cost, `Radio` also resembles the left-skewed graph with a lower skewness.
+5. `Sales` is the variable of interest here, and based on this simple pairs of panels we found that the variable are evenly distributed and has no skew, we will have more analysis on this variable on the later discussions.
+
+
+#### Descriptive Statistics
+```{r echo=FALSE}
+knitr:: kable(describe(datamrkt)) 
+```
+
+### {-}
+
+
+## 3.2. Insights & Prediction of 3rd Quartile Sales
+
+### 3.2.1 Methods Overview
+These tabs below will gives us a glimpse about the machine learning methods as well as the evaluation parameters that being used in this marketing channel analysis.
+
+### {.tabset .tabset-fade .tabset-pills}
+
+#### Methods
+
+To get a deeper insight to the data, and try to replicate the combination of each variables (spending on `TV`, `Social Media`, `Influencer` and `Radio`) to best sales volumes (equals to and higher than 75%) we employed ***Classification Machine Learning*** methods which falls under the **Supervised Machine Learning**.
+
+##### **Logistic Regression**
+
+`Logistic regression` predicts the output of a categorical dependent variable. Therefore the outcome must be a categorical or discrete value. It can be either Yes or No, 0 or 1, true or False, etc. but instead of giving the exact value as 0 and 1, it gives the probabilistic values which lie between 0 and 1. This method serve fits the purpose of this research, in which we will classify the **75% and above sales quantile** to be the 1 and the rest is 0.
+
+##### **Decision Tree**
+`Decision Tree` are a popular model, used in operations research, strategic planning, and machine learning. Although `Decision Tree` are intuitive and easy to build it can fall short when it comes to accuracy due to its dependency to the level of the tree leaves.
+
+##### **Random Forest**
+`Random Forest` is a further iteration of `Decision Tree`, in which combines several 'trees' into a 'forest'. Since we employ 'Decision Tree' into our reasearch, we might as well employ `Random Forest` and calculate which methods are consider the best using Model Evaluation
+
+##### **Two-Class Support Vector Machine**
+The last method that employed is `Support Vector Machine` method. In machine learning, `Support-Vector Machines` (SVMs, also called Support-Vector Networks) are supervised learning models with associated learning algorithms that analyze data for classification and regression analysis. Given a set of training examples, each marked as belonging to one of two categories, an SVM training algorithm builds a model that assigns new examples to one category or the other, making it a non-probabilistic binary linear classifier. We emphasize the `Two-Class` in this case since the methods is commonly used for multi-class classification problems.
+
+#### Evaluation Parameters
+
+##### **Model Accuracy**
+
+
+##### **Confusion Matrix**
+
+
+##### **ROC Curve**
+
+
+### {-}
+
+
+
+## 3.3. Variable Importance 
+
+
+
