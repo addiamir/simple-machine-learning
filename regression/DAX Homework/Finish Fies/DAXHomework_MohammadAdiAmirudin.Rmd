@@ -1,0 +1,538 @@
+---
+title: "DAX Applicant Homework Report"
+author: "Mohammad Adi Amirudin"
+date: "3/28/2021"
+output:
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document of DAX Applicant Homework submitted by Mohammad Adi Amirudin. The full documentation of this applicant homework can be accessed via https://drive.google.com/drive/folders/1LI9ZpUVW4ZjlPqp6b4Yg5UYELy8rYUPj?usp=sharing, or simply access through the documents files here:
+
+1. **Applicant homework materials:** https://drive.google.com/drive/folders/1-obvrv31h0jwDaUP1opjEcq0_1HIA5zO?usp=sharing
+
+2. **R Script:** https://drive.google.com/file/d/1ZYKXaf8JIBneDwAlsL9QHfc6s7Nw7kGi/view?usp=sharing
+
+3. **Applicant homework report (pdf):** https://drive.google.com/drive/folders/1pQLlXVATgx2-Oe4pq5sE6sCXkD6oIt8I?usp=sharing
+
+## DAX Homework for Data Analyst Candidate
+### Subject:
+Data Analysis and Develop Prediction Model
+
+### Details:
+1.	Kindly analyze and visualize sample data. “Data.csv”. Kindly show us summary of some findings based on your analysis.
+2.  Kindly develop prediction model to predict the score of Math by using Python or R. You need to use “Data.csv” as sample data. Based on other scores, Physics, Science and Statistics, you need to predict the scores of Math.
+
+### Deliverables: 
+1.	Data Analysis and summary of findings. ( Better have some visualizations for analysis)
+2.	Detailed explanation of your developed model:
+    + Why do you choose that model?
+    + How do you proceed the model development?  Please explain about your process.
+    + How do you check accuracy of that model?
+3.	Please explain about your model features. Good parts and improvable parts.
+4.	Actual Python or R source code.
+
+## Deliverable 1: Data Analysis & Summary of Findings
+
+### Data Preparation
+
+The first step to analyze the data is to import the data from the location directory first, then wI created backup for the data, while also load some R packages that will be useful in conducting data analysis, specifically related to continuous dataset, as seen in data.csv:
+
+**Importing Data**
+```{r}
+Data <- read.csv("D:/Data Analysis/DAX Homework/SourceFiles/Data.csv")
+```
+
+**Creating Backup**
+```{r}
+DAXdata <- Data
+attach(DAXdata)
+
+```
+The data analysis will be done in `DAXdata` data.frame that is a duplicate from data.frame from Data.csv.
+
+**Loading Useful R Packages**
+```{r message=FALSE, warning=FALSE}
+library(psych)
+library(caret)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(glmnet)
+library(lars)
+library(elasticnet)
+library(jtools)
+library(knitr)
+library(png)
+```
+For packages help, call the command `help(package_name)` for instance, `help(caret)`.
+
+### Data Analysis
+
+**The Data at A Glance**
+
+```{r}
+glimpse(DAXdata)
+```
+
+**Illustrating the data types, values, observation count and variable count.** The data consist of arrays of columns and rows (4 columns and 466 rows in total), with every observations categorized as integer, meaning that the data is a **continuous data**.
+
+**Summary Statistics**
+```{r}
+summary(DAXdata)
+```
+**Illustrating the summary statistics of the data.** Here we can observe the minimum and maximum value of each variable, 1st quantile of the data (one fourth way along from the first observation to the last observation), the 3rd quantile of the data (three fourth way along the way from the first observation to the last observation), mean (average value of each variables), and median.
+
+**Correlation Between Variables (Using Pearson Correlation Coefficient)**
+```{r Correlation Between Variables (Using Pearson Correlation Coefficient), fig.height=10, fig.width=14}
+cor(DAXdata)
+ggcorr(DAXdata, method = c("pairwise","pearson"))
+```
+**Both the table and the graphic are llustrating the relationship between variables, i.e., correlogram.** Correlogram value at 1.00000 refers to strongly positive correlated, while 0.00000 refers to strongly uncorrelated, value -1.00000 refers to strongly negative correlated. 
+
+In this correlogram, related to Math (dependent variable/variable of interest), variable `Statistics` (0.22706189) has the highest correlation with Math, while `Science` (0.15428389) and `Pysics` (0.05250237) follows respectively. It is also worth noting that correlogram only depicts correlation between variables using covariance of two variables, divided by the product of their standard deviations, **thus further examination of the relationship between variables needs to be addressed.** 
+
+The correlation value also serves as a basis of autocorrelation checking in linear regression, meaning that if the value among independent variables (Pysics, Statistics, Science) accounted more than 0.80000 the regression model will suffers from autocorrelation problem, producing bias estimation. 
+**Based on the result, the data is not suffering an autocorrelation problem.**
+
+**Data Distribution & Correlation Matrix**
+```{r fig.height=10, fig.width=14}
+pairs.panels(DAXdata)
+```
+**Illustrating the distribution of the data, as well as the correlation between each variables.** The diagonal graph are the distribution of the data in each variables, depicted with histogram. Above the diagonal is the pearson correlation matrix, rounded to 0.00 (2 points behind decimal). 
+
+Below the diagonal are the `scatterplots` of the variables with `correlation ellipse`. The dot at the center of the ellipse indicates the point of the mean value for the `x axis variable` and `y axis variable`. The correlation between the two variables is indicated by the shape of the ellipse; **the more it is stretched, the stronger the correlation**. An almost perfectly round oval, as with `Pysics` and `Math`, indicates a very weak correlation (in this case 0.05).
+
+**Multiple Linear Regression**
+```{r}
+linearreg <- lm(Math ~ ., data = DAXdata)
+summary(linearreg)
+```
+**Multiple linear regression** is the standard regression estimation model for examining the relationship between variables in a continuous data. Based on the regression result, we can conclude that:
+
+1. `Statistics` score is positively correlated with `Math` score, with every additional 1 point in `Statistics` resulting in an increase of `Math` score as much as (0.19295) point, tested with significance level of 99.9% (0.000).
+2. `Science` score is positively correlated with `Math` score, with every additional 1 point in `Science` resulting in an increase of `Math` score as much as (0.09474) point, tested with significance level of 99% (0.001).
+3. `Pysics` score is not correlated with `Math` score, meaning that any increment in `Pysics` score will not be associated with an increase in `Math` score whatsoever.
+4. The `Adjusted R-squared` value is 6% (0.06031), this is a small R-squared, meaning that the model may not be fitted to assess the overall observation, which may lead to a bias.It is also worth noting that low variables count may impacting the low adjusted R-squared (This regression only employ 3 independent variables as predictors). **Thus, further examination using residual goodness-of-fit plotting may be necessary.**
+
+**Goodness-of-Fit Evaluation (Residual Plotting)**
+```{r fig.height=10, fig.width=14}
+ggplot(data=DAXdata, aes(linearreg$residuals)) +
+geom_histogram(binwidth = 1, color = "black", fill = "green") +
+theme(panel.background = element_rect(fill = "#efefef"),
+axis.line.x=element_line(),
+axis.line.y=element_line()) +
+ggtitle("Residual Plotting: Histogram of Multiple Linear Model Residuals")
+```
+
+The residual plotting shows that while the distribution tends to congregate around 0, the distribution of the residuals seems to be spread around -25 and 25, thus perpetuate the low R-squared value.
+
+I did a plotting for each independent variable to dependent variable residual effect to examine the state of individual variable residuals, the graphic are as presented as below:
+
+```{r echo=FALSE, fig.height=3.0, fig.width=4.2, message=FALSE, warning=FALSE, paged.print=FALSE}
+effect_plot(linearreg, pred = Statistics, interval = TRUE, partial.residuals = TRUE, main = "Residual Plotting for Math$Statistics")
+effect_plot(linearreg, pred = Science, interval = TRUE, partial.residuals = TRUE, main = "Residual Plotting for Math$Science")
+effect_plot(linearreg, pred = Pysics, interval = TRUE, partial.residuals = TRUE,
+main = "Residual Plotting for Math$Pysics")
+```
+
+The plots resemble the overall `residual plotting`, with a large fraction of residuals are closely fitted to the regression line. The residuals also seemed to be distributed around the `confidence interval` shading line (the default number of the confidence interval is 95%). While the residuals are closely fitted to the regression line, the distribution of the residuals seems to be diverging out of the regression line (the point 0 of the residual histogram plotting), thus resemble the histogram of residual plotting, we can solve this problem later by preprocessing the individual variables and imposing regularization to the model. 
+
+
+### Summary Findings
+
+The following points describes the key findings of the `DAXdata` from `Data.csv`:
+
+1. The `data.frame` contains 466 observations, 462 df and 4 variables, namely; `Math`, `Pysics`, `Science`, and `Statistics`, the data classified as continuous numeric data coded as int (integer).
+
+2. The data follows a linear relationship between variables, `Science` and `Statistics` had shown a positive relationship related to `Math`, while `Pysics` had not. These results are derived from the Pearson Correlation Coefficient Test, Correlation Ellipse and Multiple Linear Regression.
+
+3. The adjusted R-squared value of the model are low, while this remains true several modification into the regression model as well as prediction model may be fixing out this issue. It is also worth noting that low variables count may impacting the low adjusted R-squared.
+
+4. The residual plotting reinvigorate the relationship of the variables (which is linear) as well as depicting the condition of residual distributions, which closely fitted to the regression line, distributed around the confidence interval area, and diverging outwards the point 0 of residual plotting. We can solve this problem later by preprocessing the individual variables and imposing regularization to the model. 
+
+## Deliverables 2: Detailed Explanation of The Developed Model
+
+### Model Selection | Why Choosing Multiple Linear Regression Prediction Model?
+
+There are plenty of model that we can select in order to obtain the optimal result of prediction, the list of the models can be accessed in here: https://docs.microsoft.com/en-us/azure/machine-learning/algorithm-cheat-sheet In a search for the optimal prediction model, the following characteristics needs to be addressed:
+
+1. Data types: *Continuous*
+2. Dependent & independent variable relationship: *Linear*
+3. Output expected: *Numerical, continuous.*
+4. Number of predictors: *More than 1*
+5. Include time variable: *No*
+
+With the reference of the characteristics in `Data.csv`, several possible models are listed, namely; 
+
+a. Linear Regression Prediction
+b. **Multiple Linear Regression Prediction**
+c. Logistic Linear Prediction
+d. Decision Tree Prediction
+e. Random Forest Prediction
+
+The selected model is **Multiple Regression Prediction Model** as a result of the following considerations:
+
+1. **The data characteristics** fitted well, linear prediction only accounted for 1 predictor, while multiple linear prediction can be assessed into more than 1 predictors (`Science`, `Pysics`, `Statistics`).
+
+2. The expected output is numerical, continuous output, while logistic linear, decision tree and random forest prediction can be assessed into continuous dataset, they all also used in predicting values which expected output is bayesian output and other. **The linear relationship between variables examined through previous tests comply with multiple linear regression model**, making its ideal in comparison with decision tree, logistic linear, and random forest prediction model.
+
+3. **Close/similar statistical result from `train` data and the actual data.** I created a dataset using 70% of `Data.csv` as a reference for the `train data.frame` using random sampling. the result resemble the actual data, with full disclosure of summary statistics and regression results from `train` and `DAXdata` (actual dataset from `Data.csv`) are presented as below:
+
+```{r message=FALSE, warning=FALSE, include=FALSE}
+set.seed(100) 
+index <- sample(1:nrow(DAXdata), 0.7*nrow(DAXdata)) 
+train <- DAXdata[index,] # Create the training data 
+test <- DAXdata[-index,] # Create the test data
+    ## Check Training & Test Data Dimensions
+dim(train)
+dim(test)
+```
+
+**Summary Statistics | Actual Dataset (`DAXdata` taken from `Data.csv`)**
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(DAXdata)
+```
+**Summary Statistics | Train Dataset (`train` dataset created from random sampling of 70% `DAXdata`)**
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+summary(train)
+```
+**Linear Regression Result | Actual Dataset (`DAXdata` taken from `Data.csv`)**
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=TRUE}
+linearreg <- lm(Math ~ ., data = DAXdata)
+summary(linearreg)
+```
+**Linear Regression Result | Train Dataset (`train` dataset created from random sampling of 70% `DAXdata`)**
+```{r echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE}
+lineartrn <- lm(Math ~ ., data = train)
+summary(lineartrn)
+```
+### Model Specification & Attributes:
+1. The prediction model is **Multiple Linear Regression Prediction**.
+2. The model uses **train control function preprocessing** `trControl <- preProcess(c(independent_variables), train, method = c("center", "scale"))`, in which scaling the independent variables to the means of the variables and center it.
+3. The model later imposed with *regularization through dummy variables*, creating a model matrix using dummy variables to make the independent variable (`Statistics`, `Pysics`, `Science`) becoming a factor value to be able to process **Ridge Regression** and **Lasso Regression** models.
+4. **Ridge Regression & Lasso Regression** prediction models are also introduced in the prediciton model to control the loss function and modified it to minimize the complexity of the model.
+5. **Ridge Regression & Lasso Regression** are predicted with `optimal lambdas` selected for each of the prediction model. 
+
+## Model Development Process | How Do You Proceed The Model Development?
+### Model Development Process | Diagram
+The following **flowchart diagram** represented the process in which I took in order to develop the prediction model.
+
+```{r echo=FALSE, fig.align='center', out.width="100%"}
+knitr::include_graphics("C:/Users/Addi/Documents/images/aa.png")
+```
+
+### Model Development Process | Steps
+
+**A. Importing Dataset & Library Package, Data Integrity Checking**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+Data <- read.csv("D:/Data Analysis/DAX Homework/SourceFiles/Data.csv")
+## Creating backup
+DAXdata <- Data
+attach(DAXdata)
+    
+## Packages Used
+library(tinytex)
+library(psych)
+#...
+library(knitr)
+library(png)
+## As seen in Deliverable 1: Data Preparation
+```
+
+For full process of dataset import, library package and data integrity checking, please refers to section **Deliverable 1: Data Preparation**.
+
+**B. Data Integrity Checking**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+## Make sure VARIABLES has no missing value: 
+stopifnot(!any(is.na(Math)))
+stopifnot(!any(is.na(Science)))
+stopifnot(!any(is.na(Pysics)))
+stopifnot(!any(is.na(Statistics))) 
+#The results didn't fetch any issue, data has no missing value.
+    
+## Make sure VARIABLES is NUMERIC
+stopifnot(is.numeric(Math))
+stopifnot(is.numeric(Statistics))
+stopifnot(is.numeric(Science))
+stopifnot(is.numeric(Pysics))
+glimpse(DAXdata)
+#data is NUMERIC (no error message fetched), glimpse data describe as integer.
+
+```
+
+**C. Data Partitioning**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+set.seed(100) 
+index <- sample(1:nrow(DAXdata), 0.7*nrow(DAXdata)) 
+train <- DAXdata[index,] # Create the training data 
+test <- DAXdata[-index,] # Create the test data
+```
+
+**D. Analyzing Data Using Summary Statistics, Visualization & Regression Result**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+#Data Analysis Using Summary Statistics
+summary(DAXdata)
+
+#Data Analysis Using Visualization
+
+#Visualization for Model Residual (Base Data)
+
+#Visualization for Individual Model Residual
+
+#Data Analysis Using Linear Regression
+```
+For full process of Analyzing Data Using Summary Statistics, Visualization & Regression Result and its results and analysis please refers to section: **Deliverable 1: Data Analysis**.
+
+**E. Model Selection**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+lineartrain <- lm(Math ~ ., data = train)
+summary(lineartrain)
+    
+ggplot(data=train, aes(lineartrain$residuals)) +
+  geom_histogram(binwidth = 1, color = "black", fill = "green") +
+  theme(panel.background = element_rect(fill = "#efefef"),
+        axis.line.x=element_line(),
+        axis.line.y=element_line()) +
+  ggtitle("Histogram for Model Residuals Linear Training Data")
+```
+For full process of model selection, please refers to **Deliverable 2: Model Selection | Why Choosing Multiple Linear Regression Prediction Model?** section.
+
+**F. Creating Preprocessing Independent Variables**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+cols = c('Pysics', 'Science', 'Statistics')
+    
+pre_proc_val <- preProcess(train[,cols], method = c("center", "scale"))
+  
+train[,cols] = predict(pre_proc_val, train[,cols])
+test[,cols] = predict(pre_proc_val, test[,cols])
+    
+summary(train) #Scaling and centering numeric feature
+lineartrain <- lm(Math ~ ., data = train)
+summary(lineartrain)
+```
+This code will run a preprocessing process in which observations values for `Science`, `Pysics`, and `Statistics` are centered and scaled (value changed with respects to mean value and center it, making value as much as mean = 0 and other values are +/- to the mean value respectfully). **This process is required, otherwise, they may adversely influence the modeling process.**
+
+**G. Creating Model Evaluation Metrics**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+# For Multiple Linear Regression
+eval_metrics <- function(model, df, predictions, target) {
+  resids = df[,target] - predictions
+  resids2 = resids**2
+  N = length(predictions)
+  r2 = as.character(round(summary(model)$r.squared, 2))
+  adj_r2 = as.character(round(summary(model)$adj.r.squared, 2))
+  print("Adjusted R-Squared")
+  print(adj_r2) #Adjusted R-squared
+  print("RMSE")
+  print(as.character(round(sqrt(sum(resids2)/N), 2))) #RMSE
+}
+
+# For Ridge and Lasso Regression
+eval_results <- function(true, predicted, df) {
+  SSE <- sum((predicted - true)^2)
+  SST <- sum((true - mean(true))^2)
+  R_square <- 1 - SSE / SST
+  RMSE = sqrt(SSE/nrow(df))
+  # Model performance metrics
+  data.frame(
+    RMSE = RMSE,
+    Rsquare = R_square
+  )
+  }
+```
+Codes above will fetch the evaluation metrics that has been used in this data analysis to assess the best-fitted model. The metrics are:
+
+**RMSE**: Root Mean Square Error (RMSE) is the standard deviation of the residuals (prediction errors). Residuals are a measure of how far from the regression line data points are; RMSE is a measure of how spread out these residuals are. *The lower RMSE the better (value ranging from 0 to 1).
+**R-Square**: R-squared (R2) is a statistical measure that represents the proportion of the variance for a dependent variable that's explained by an independent variable or variables in a regression model. *The higher the R-squared value the better (Value ranging from 0 to 1).
+
+**H. Regularization**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+# Creating Training Data Matrices for Multiple Linear Regression Model with Regularization (Ridge Method and Lasso Method)
+cols_reg = c('Pysics', 'Science', 'Statistics', 'Math')
+dummies <- dummyVars(Math ~., data = DAXdata[,cols_reg])
+train_dummies = predict(dummies, newdata = train[,cols_reg])
+test_dummies = predict(dummies, newdata = test[,cols_reg])
+print(dim(train_dummies)); print(dim(test_dummies))
+
+x = as.matrix(train_dummies)
+y_train = train$Math
+    
+x_test = as.matrix(test_dummies)
+y_test = test$Math 
+
+# Finding The Best Hyperparameter for Optimal Regularization Result
+## Hyperparameter tuning (lambda) using package(caret):
+## For both Ridge and Lasso Regression:
+fitControl <- trainControl(method = "repeatedcv",   
+                           number = 10,     # number of folds
+                           repeats = 10,    # repeated ten times
+                           search = "random") #searching for optimal lambda
+## Hyperparameter tuning (lambda) using package(glmnet):
+## Ridge Regression:   
+lambdas <- 10^seq(2, -3, by = -.1)
+cv_ridge <- cv.glmnet(x, y_train, alpha = 0, lambda = lambdas)
+optimal_lambda <- cv_ridge$lambda.min
+optimal_lambda
+
+## Lasso Regression:
+lambdas <- 10^seq(2, -3, by = -.1)
+lasso_reg <- cv.glmnet(x, y_train, alpha = 1, lambda = lambdas, 
+                      #Setting alpha to 1 makes it perform lasso regression
+                      standardize = TRUE, nfolds = 5)
+lambda_best <- lasso_reg$lambda.min 
+lambda_best
+```
+
+Linear regression algorithm works by selecting coefficients for each independent variable that minimizes a loss function. However, if the coefficients are large, they can lead to over-fitting on the training dataset, and such a model will not generalize well on the unseen test data.**To overcome this shortcoming, we'll do regularization**, which penalizes large coefficients.
+
+These codes above explaining the regularization process. The process involved in finding the best hyperparameter (the best-fitted model tested on lambda sequences) for `Ridge` and `Lasso` Regression. 
+
+I run codes by using 2 package, namely `package(caret)` and `package(glmnet)` while `caret` package do the lambda/ hyperparameter tuning process automatically, the `glmnet` package required to specify an additional information regarding the process, such as the needs in creating values and data for lambda. 
+
+**J. Regression Models**
+
+I employ linear regression with 3 models: 
+
+**1. Multiple Linear Regression Model**
+**2. Multiple Linear Regression Model(With Ridge method for regularization)**
+**2. Multiple Linear Regression Model(With Lasso method for regularization)**
+
+The following codes are the operation of the regression:
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+## Using caret Package
+## Linear Regression
+    library(caret)
+    linearcrt <- train(Math ~., 
+                       data = DAXdata,
+                       method = "lm")
+## Ridge Regression
+    ridgecrt <- train(Math ~., 
+                      data = DAXdata,
+                      method = "ridge",
+                      trControl = fitControl,
+                      preProcess = c('scale','center'),
+                      na.action = na.omit)
+## Lasso Regression
+    lassocrt <- train(Math ~ .,
+                      data = DAXdata,
+                      method = "lasso",
+                      trControl = fitControl,
+                      preProcess = c('scale', 'center'),
+                      na.action = na.omit)
+
+## Using glmnet Package
+## Linear Regression
+    lineartrain <- lm(Math ~ ., data = train)
+    
+## Ridge Regression
+    ridge_reg <- glmnet(x, y_train, nlambda = 25, alpha = 0,
+                       #Setting alpha to 0 makes it perform ridge regression
+                       family = 'gaussian', lambda = optimal_lambda)
+    
+#Lasso Regression using optimal lambda
+    lasso_model <- glmnet(x, y_train, alpha = 1, lambda = lambda_best, 
+                          standardize = TRUE)
+```
+
+The result of the regression is as follows:
+```{r}
+linearcrt
+ridgecrt
+lassocrt
+```
+
+As we can see, the codes above fetch the RMSE and R-squared for every regression results. Next we will make a prediction using `train` data and `test` data that based on the sample of the actual dataset.
+
+**K. Prediction Model**
+```{r message=FALSE, warning=FALSE, paged.print=FALSE}
+### Using manual method & glmnet Package
+    #Prediction from linear prediction   
+    predictlmtrain <- predict(lineartrain, newdata = train)
+    predictlmtest <- predict(lineartrain, newdata = test)
+         
+    #Prediction from ridge prediction  
+    predictridgetrain <- predict(ridge_reg, s = optimal_lambda, newx = x) 
+    predictridgetest <- predict(ridge_reg, s = optimal_lambda, newx = x_test)
+         
+    #Prediction from lasso prediction
+    predictlassotrain <- predict(lasso_model, s = lambda_best, newx = x)
+    predictlassotest <- predict(lasso_model, s = lambda_best, newx = x_test)
+         
+### Using caret Package
+    #Prediction from linear prediction
+    predictlmcrt <- predict(linearcrt, DAXdata)
+    
+    #Prediction from ridge prediction
+    predictridgecrt <- predict(ridgecrt, DAXdata)
+  
+    #Prediction from ridge prediction
+    predictlassocrt <- predict(lassocrt, DAXdata)
+```
+
+
+**L. Model Evaluation Metrics**
+```{r echo=TRUE}
+## Linear Prediction
+eval_metrics(lineartrain, train, predictlmtrain, target = 'Math')
+eval_metrics(lineartrain, test, predictlmtest, target = 'Math')
+    
+## Ridge Prediction
+eval_results(y_train, predictridgetrain, train)
+eval_results(y_test, predictridgetest, test)
+    
+## Lasso Prediction
+eval_results(y_train, predictlassotrain, train)
+eval_results(y_test, predictlassotest, test)
+```
+
+Further explanation of the model evaluation metrics are included in the next section: **Model Validation | How to Check The Model Accuracy?**
+
+### Model Validation | How to Check The Model Accuracy?
+
+Table below are the summarization of **RMSE and R-squared of the models that's being used in order to validate this prediction**, we compare the value of RMSE and R-squared to make sure that we chooses the best-fitted model.
+
+**RMSE and R-Squared table**
+
+
+Model         | RMSE          | R-squared 
+------------- | ------------- | ------------- 
+Linear(actual)| 11.14501      | 0.06084475
+              |               |
+Linear(train) | 10.50591****  | 0.06221734**** 
+Linear(test)  | 12.19231      | 0.06514321***  
+Ridge(train)  | 10.50534***   | 0.06713337**  
+Ridge(test)   | 12.21070      | 0.04773909  
+Lasso(train)  | 10.50591****  | 0.06703285*  
+Lasso(test)   | 12.21141      | 0.04762883  
+
+As we can see, the splitting `test` and `train` method produce a somewhat similar value of **RMSE** and **R-squared** to actual linear regression, with differences differs from 0.01 to 0.002 in **R-squared** and 1.2 to 0.6 in **RMSE**.
+
+So the best-fitted model to choose is **Multiple Linear Regression Prediction Model**.
+
+Prediction result on the best-fitted model: **Multiple Linear Regression Prediction Model**
+```{r}
+predictlmcrt
+```
+
+
+## Deliverable 3: Model Features
+
+### Good Parts
+The good part of the data is that the prediction performance is good, with prediction accuracy are validated through `test` and `train` splitting method and the comparison of **RMSE** and **R-squared** of the actual regression model vs the predicted regression model.
+
+### Improvable Parts
+While the selected model are **Multiple Regression Linear Prediction Model** and not using `Ridge` or `Lasso` regularization method, the use of `Ridge` and `Lasso` method in the regularization of the data may serve a good purpose in this kind of data (small number of variable/predictor, linear regression) to ensure that the prediction didn't suffer from overfitting.  
+
+## Deliverable 4: Actual Python/R Source Code
+This data analysis is processed using RStudio tool (Version 1.4.1106), the R source code of this data analysis is also attached in the file.rar, or can be accessible from: https://drive.google.com/file/d/1ZYKXaf8JIBneDwAlsL9QHfc6s7Nw7kGi/view?usp=sharing
+
+
+
+
+
